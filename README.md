@@ -28,11 +28,10 @@ u = dpsi/dy,  v = -dpsi/dx                  (velocity recovery)
 
 These parameters control the Reynolds number and initial instability structure. Small changes produce dramatically different vortex evolution.
 
-## Running
+## Live demos
 
-**Interactive solver** — open `fluid.html` in a browser. Tweak parameters with sliders and watch Kelvin-Helmholtz vortices form in real time.
-
-**GA evolution** — open `evolution.html` in a browser. An island-model GA evolves fluid parameters, with a fitness chart and hall of fame showing the most interesting simulations found so far.
+- [**Interactive solver**](https://raggedr.github.io/fluid-dynamics/fluid.html) — tweak parameters with sliders and watch Kelvin-Helmholtz vortices form in real time
+- [**GA evolution**](https://raggedr.github.io/fluid-dynamics/evolution.html) — island-model GA evolves fluid parameters, with fitness chart and hall of fame
 
 **Headless batch** — `node batch_fluid.mjs` runs experiments on CPU without a browser, outputting results to CSV.
 
