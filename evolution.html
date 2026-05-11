@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evolving Kelvin-Helmholtz Patterns</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#08081a;color:#d0d0e0;font-family:'Menlo','Consolas','Monaco',monospace;min-height:100vh}
+#app{max-width:960px;margin:0 auto;padding:24px}
+
+header{display:flex;align-items:baseline;gap:20px;margin-bottom:28px;border-bottom:1px solid #1a1a3a;padding-bottom:14px;flex-wrap:wrap}
+header h1{font-size:18px;font-weight:600;color:#e8e8f0;letter-spacing:-0.5px}
+#gen-counter{font-size:13px;color:#888}
+#gen-num{color:#d4a843;font-weight:700}
+#status{font-size:12px;color:#555;margin-left:auto}
+
+#islands-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
+.island-card{background:#0e0e24;border:1px solid #1a1a3a;border-radius:8px;padding:12px;text-align:center;transition:border-color 0.3s}
+.island-card.best{border-color:#d4a843}
+.island-name{font-size:11px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:6px}
+.island-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.c0{background:#ff6b6b}.c1{background:#4ecdc4}.c2{background:#ffe66d}.c3{background:#a78bfa}
+.pattern-img{width:100%;aspect-ratio:1;background:#050510;border-radius:4px;display:block;image-rendering:auto}
+.island-params{font-size:10px;color:#555;margin-top:8px;line-height:1.7;font-variant-numeric:tabular-nums}
+.island-fitness{font-size:13px;font-weight:600;color:#2aa198;margin-top:4px}
+
+#chart-section{margin-bottom:28px}
+#chart-section h2{font-size:12px;color:#555;margin-bottom:8px;font-weight:400}
+#fitness-chart{width:100%;height:120px;background:#0a0a1e;border:1px solid #1a1a3a;border-radius:6px;display:block}
+
+#hall-of-fame{margin-bottom:28px}
+#hall-of-fame h2{font-size:12px;color:#555;margin-bottom:10px;font-weight:400}
+#hof-strip{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px}
+.hof-entry{flex-shrink:0;text-align:center}
+.hof-entry img{width:80px;height:80px;border:1px solid #d4a843;border-radius:4px;image-rendering:auto;display:block}
+.hof-info{font-size:9px;color:#777;margin-top:4px;line-height:1.4}
+
+#controls{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 0;border-top:1px solid #1a1a3a;flex-wrap:wrap}
+#topo-selector{display:flex;align-items:center;gap:8px}
+#topo-selector span{font-size:11px;color:#555}
+.topo-btn{background:#111128;border:1px solid #2a2a4a;color:#999;padding:5px 12px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px;transition:all 0.15s}
+.topo-btn:hover{border-color:#4a4a6a;color:#ddd}
+.topo-btn.active{background:#1a1a3a;border-color:#2aa198;color:#2aa198}
+#action-buttons{display:flex;gap:8px}
+.action-btn{border:none;color:#fff;padding:7px 18px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;transition:all 0.15s}
+.action-btn.primary{background:#2aa198}.action-btn.primary:hover{background:#35b5ab}
+.action-btn.secondary{background:#1a1a3a;color:#999}.action-btn.secondary:hover{background:#2a2a4a;color:#ddd}
+.action-btn:disabled{background:#1a1a2a!important;color:#444!important;cursor:not-allowed}
+
+@media(max-width:700px){#islands-grid{grid-template-columns:repeat(2,1fr)}}
+
+.experiment-panel{margin-top:20px;border:1px solid #1a1a3a;border-radius:8px;background:#0a0a1e}
+.experiment-header{padding:12px 16px;cursor:pointer;font-size:12px;color:#888;user-select:none;display:flex;align-items:center;gap:8px}
+.experiment-header:hover{color:#ddd}
+.experiment-header .arrow{transition:transform 0.2s;display:inline-block}
+.experiment-header .arrow.open{transform:rotate(90deg)}
+.experiment-body{padding:0 16px 16px;display:none}
+.experiment-body.open{display:block}
+.experiment-inputs{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.experiment-inputs label{font-size:11px;color:#888;display:flex;align-items:center;gap:6px}
+.experiment-inputs input[type="number"]{width:60px;background:#111128;border:1px solid #2a2a4a;color:#ddd;padding:4px 6px;border-radius:3px;font-family:inherit;font-size:11px}
+.topo-checks{display:flex;gap:10px;align-items:center}
+.topo-checks label{font-size:11px;color:#888;display:flex;align-items:center;gap:4px;cursor:pointer}
+.topo-checks input[type="checkbox"]{accent-color:#2aa198}
+.progress-container{margin-top:12px;position:relative;height:22px;background:#111128;border-radius:4px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,#2aa198,#35b5ab);transition:width 0.3s;width:0}
+.progress-text{position:absolute;top:0;left:0;right:0;height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;color:#ddd}
+#exp-results{margin-top:16px}
+#exp-results h3{font-size:12px;color:#555;font-weight:400;margin-bottom:10px}
+.results-table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px}
+.results-table th,.results-table td{padding:6px 10px;text-align:left;border-bottom:1px solid #1a1a3a}
+.results-table th{color:#888;font-weight:400}
+.results-table td{color:#ddd;font-variant-numeric:tabular-nums}
+#diversity-chart{width:100%;height:160px;background:#0a0a1e;border:1px solid #1a1a3a;border-radius:6px;display:block}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Evolving Kelvin-Helmholtz Patterns</h1>
+    <div id="gen-counter">Generation <span id="gen-num">0</span></div>
+    <div id="status">Ready</div>
+  </header>
+  <div id="islands-grid"></div>
+  <div id="chart-section"><h2>Fitness over generations</h2><canvas id="fitness-chart"></canvas></div>
+  <div id="hall-of-fame"><h2>Hall of Fame</h2><div id="hof-strip"><span style="font-size:11px;color:#444">Patterns will appear here as evolution runs...</span></div></div>
+  <div id="controls">
+    <div id="topo-selector">
+      <span>Fitness:</span>
+      <button class="topo-btn" data-fitness="entropy">Entropy</button>
+      <button class="topo-btn active" data-fitness="novelty">Novelty</button>
+      <span style="margin-left:12px">Migration:</span>
+      <button class="topo-btn active" data-topo="none">None</button>
+      <button class="topo-btn" data-topo="ring">Ring</button>
+      <button class="topo-btn" data-topo="star">Star</button>
+      <button class="topo-btn" data-topo="fc">Full</button>
+    </div>
+    <div id="action-buttons">
+      <button class="action-btn primary" id="btn-start">Evolve</button>
+      <button class="action-btn secondary" id="btn-pause" disabled>Pause</button>
+      <button class="action-btn secondary" id="btn-reset" disabled>Reset</button>
+    </div>
+  </div>
+  <div class="experiment-panel">
+    <div class="experiment-header" id="experiment-toggle">
+      <span class="arrow">&#9654;</span> Batch Experiment
+    </div>
+    <div class="experiment-body" id="experiment-body">
+      <div class="experiment-inputs">
+        <label>Generations <input type="number" id="exp-gens" value="30" min="1" max="200"></label>
+        <label>Seeds <input type="number" id="exp-seeds" value="10" min="1" max="50"></label>
+        <div class="topo-checks" id="topo-checks">
+          <label><input type="checkbox" value="none" checked> None</label>
+          <label><input type="checkbox" value="ring" checked> Ring</label>
+          <label><input type="checkbox" value="star" checked> Star</label>
+          <label><input type="checkbox" value="fc" checked> Full</label>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="action-btn primary" id="btn-experiment">Run Experiment</button>
+        <button class="action-btn secondary" id="btn-download-csv" disabled>Download CSV</button>
+      </div>
+      <div class="progress-container" id="exp-progress-container" style="display:none">
+        <div class="progress-fill" id="exp-progress-fill"></div>
+        <div class="progress-text" id="exp-progress-text"></div>
+      </div>
+      <div id="exp-results" style="display:none">
+        <h3>Diversity at final generation (mean &plusmn; std across seeds)</h3>
+        <div id="exp-summary"></div>
+        <h3 style="margin-top:14px">Diversity over generations (total diversity, averaged across seeds)</h3>
+        <canvas id="diversity-chart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+
+// ── Shaders ─────────────────────────────────────────────────
+
+const VERT = `
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+
+const INIT_FRAG = `
+precision highp float;
+uniform vec2 resolution;
+uniform float vShear, delta, aPert, kPert;
+varying vec2 vUv;
+float sech2(float x) {
+  float ex = exp(clamp(x, -20.0, 20.0));
+  float ch = (ex + 1.0 / ex) * 0.5;
+  return 1.0 / (ch * ch);
+}
+void main() {
+  float x = vUv.x, y = vUv.y;
+  float layer1 = sech2((y - 0.25) / delta);
+  float layer2 = sech2((y - 0.75) / delta);
+  float pert = 1.0 + aPert * sin(6.283185307 * kPert * x);
+  float omega = -(vShear / delta) * (layer1 - layer2) * pert;
+  gl_FragColor = vec4(omega, 0.0, 0.0, 1.0);
+}`;
+
+const JACOBI_FRAG = `
+precision highp float;
+uniform sampler2D tOmega, tPsi;
+uniform vec2 resolution;
+varying vec2 vUv;
+void main() {
+  vec2 tx = 1.0 / resolution;
+  float dx = tx.x;
+  float omega = texture2D(tOmega, vUv).r;
+  float pE = texture2D(tPsi, vUv + vec2(tx.x, 0.0)).r;
+  float pW = texture2D(tPsi, vUv + vec2(-tx.x, 0.0)).r;
+  float pN = texture2D(tPsi, vUv + vec2(0.0, tx.y)).r;
+  float pS = texture2D(tPsi, vUv + vec2(0.0, -tx.y)).r;
+  gl_FragColor = vec4((pE + pW + pN + pS + dx * dx * omega) / 4.0, 0.0, 0.0, 1.0);
+}`;
+
+const ADVECT_FRAG = `
+precision highp float;
+uniform sampler2D tOmega, tPsi;
+uniform vec2 resolution;
+uniform float nu, dt;
+varying vec2 vUv;
+void main() {
+  vec2 tx = 1.0 / resolution;
+  float dx = tx.x;
+  float pE = texture2D(tPsi, vUv + vec2(tx.x, 0.0)).r;
+  float pW = texture2D(tPsi, vUv + vec2(-tx.x, 0.0)).r;
+  float pN = texture2D(tPsi, vUv + vec2(0.0, tx.y)).r;
+  float pS = texture2D(tPsi, vUv + vec2(0.0, -tx.y)).r;
+  float u = (pN - pS) / (2.0 * dx);
+  float v = -(pE - pW) / (2.0 * dx);
+  vec2 backPos = vUv - dt * vec2(u, v);
+  float omegaAdv = texture2D(tOmega, backPos).r;
+  float oC = texture2D(tOmega, vUv).r;
+  float oE = texture2D(tOmega, vUv + vec2(tx.x, 0.0)).r;
+  float oW = texture2D(tOmega, vUv + vec2(-tx.x, 0.0)).r;
+  float oN = texture2D(tOmega, vUv + vec2(0.0, tx.y)).r;
+  float oS = texture2D(tOmega, vUv + vec2(0.0, -tx.y)).r;
+  float lap = (oE + oW + oN + oS - 4.0 * oC) / (dx * dx);
+  float omNew = clamp(omegaAdv + dt * nu * lap, -200.0, 200.0);
+  gl_FragColor = vec4(omNew, 0.0, 0.0, 1.0);
+}`;
+
+const DISPLAY_FRAG = `
+precision highp float;
+uniform sampler2D tOmega;
+uniform float omegaMax;
+varying vec2 vUv;
+void main() {
+  float omega = texture2D(tOmega, vUv).r;
+  float t = clamp(omega / omegaMax, -1.0, 1.0);
+  vec3 neg = vec3(0.10, 0.55, 0.85);
+  vec3 zero = vec3(0.03, 0.03, 0.08);
+  vec3 pos = vec3(0.90, 0.40, 0.10);
+  vec3 color = t < 0.0 ? mix(zero, neg, sqrt(-t)) : mix(zero, pos, sqrt(t));
+  gl_FragColor = vec4(color, 1.0);
+}`;
+
+// ── Configuration ───────────────────────────────────────────
+
+const CONFIG = {
+  simSize: 128,
+  simSteps: 500,
+  warmupIters: 300,
+  jacobiIters: 40,
+  dt: 0.005,
+  numIslands: 4,
+  popSize: 8,
+  eliteCount: 2,
+  tournamentSize: 3,
+  migrationInterval: 5,
+  hofSize: 10,
+  mutationSigma: { nu: 0.0008, vShear: 0.3, delta: 0.008, aPert: 0.03, kPert: 0.5 },
+  initRange: {
+    nu:     [0.0003, 0.003],
+    vShear: [1.5, 4.0],
+    delta:  [0.03, 0.08],
+    aPert:  [0.15, 0.4],
+    kPert:  [2, 6]
+  }
+};
+
+const PARAM_RANGES = {
+  nu:     [0.0001, 0.005],
+  vShear: [1.0, 5.0],
+  delta:  [0.02, 0.12],
+  aPert:  [0.05, 0.5],
+  kPert:  [1, 8]
+};
+
+const ISLAND_COLORS = ['#ff6b6b', '#4ecdc4', '#ffe66d', '#a78bfa'];
+
+// ── PRNG ────────────────────────────────────────────────────
+
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+let rng = Math.random;
+
+// ── Utilities ───────────────────────────────────────────────
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function gaussianRandom() {
+  let u, v, s;
+  do { u = rng() * 2 - 1; v = rng() * 2 - 1; s = u*u + v*v; } while (s >= 1 || s === 0);
+  return u * Math.sqrt(-2 * Math.log(s) / s);
+}
+function randRange(lo, hi) { return lo + rng() * (hi - lo); }
+function shannonEntropy(histogram, total) {
+  let e = 0;
+  for (let i = 0; i < histogram.length; i++) {
+    if (histogram[i] > 0) { const p = histogram[i] / total; e -= p * Math.log2(p); }
+  }
+  return e;
+}
+function waitFrame() { return new Promise(r => requestAnimationFrame(r)); }
+
+// ── Simulator ───────────────────────────────────────────────
+
+class Simulator {
+  constructor(size) {
+    this.size = size;
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = size; this.canvas.height = size;
+    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, preserveDrawingBuffer: true });
+    this.renderer.setSize(size, size);
+    this.renderer.setClearColor(0x000000, 1);
+    this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    this.scene = new THREE.Scene();
+
+    const mkRT = (f) => new THREE.WebGLRenderTarget(size, size, {
+      wrapS: THREE.RepeatWrapping, wrapT: THREE.RepeatWrapping,
+      minFilter: f, magFilter: f,
+      type: THREE.FloatType, format: THREE.RGBAFormat,
+      depthBuffer: false, stencilBuffer: false
+    });
+
+    this.omega = [mkRT(THREE.LinearFilter), mkRT(THREE.LinearFilter)];
+    this.psi = [mkRT(THREE.NearestFilter), mkRT(THREE.NearestFilter)];
+
+    const res = { value: new THREE.Vector2(size, size) };
+    this.initMat = new THREE.ShaderMaterial({
+      uniforms: { resolution: res, vShear: {value:0}, delta: {value:0}, aPert: {value:0}, kPert: {value:0} },
+      vertexShader: VERT, fragmentShader: INIT_FRAG
+    });
+    this.jacobiMat = new THREE.ShaderMaterial({
+      uniforms: { tOmega: {value:null}, tPsi: {value:null}, resolution: res },
+      vertexShader: VERT, fragmentShader: JACOBI_FRAG
+    });
+    this.advectMat = new THREE.ShaderMaterial({
+      uniforms: { tOmega: {value:null}, tPsi: {value:null}, resolution: res, nu: {value:0}, dt: {value:CONFIG.dt} },
+      vertexShader: VERT, fragmentShader: ADVECT_FRAG
+    });
+    this.displayMat = new THREE.ShaderMaterial({
+      uniforms: { tOmega: {value:null}, omegaMax: {value:1} },
+      vertexShader: VERT, fragmentShader: DISPLAY_FRAG
+    });
+
+    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.initMat);
+    this.scene.add(this.mesh);
+  }
+
+  _runSim(ind) {
+    const u = this.initMat.uniforms;
+    u.vShear.value = ind.vShear; u.delta.value = ind.delta;
+    u.aPert.value = ind.aPert; u.kPert.value = ind.kPert;
+
+    // Init vorticity
+    this.mesh.material = this.initMat;
+    this.renderer.setRenderTarget(this.omega[0]);
+    this.renderer.render(this.scene, this.camera);
+
+    // Clear psi
+    for (const p of this.psi) { this.renderer.setRenderTarget(p); this.renderer.clear(); }
+
+    let curO = 0, curP = 0;
+
+    // Warmup Poisson solve
+    this.mesh.material = this.jacobiMat;
+    this.jacobiMat.uniforms.tOmega.value = this.omega[0].texture;
+    for (let j = 0; j < CONFIG.warmupIters; j++) {
+      this.jacobiMat.uniforms.tPsi.value = this.psi[curP].texture;
+      const np = 1 - curP;
+      this.renderer.setRenderTarget(this.psi[np]);
+      this.renderer.render(this.scene, this.camera);
+      curP = np;
+    }
+
+    // Simulation timesteps
+    this.advectMat.uniforms.nu.value = ind.nu;
+    this.advectMat.uniforms.dt.value = CONFIG.dt;
+
+    for (let s = 0; s < CONFIG.simSteps; s++) {
+      // Poisson solve
+      this.mesh.material = this.jacobiMat;
+      this.jacobiMat.uniforms.tOmega.value = this.omega[curO].texture;
+      for (let j = 0; j < CONFIG.jacobiIters; j++) {
+        this.jacobiMat.uniforms.tPsi.value = this.psi[curP].texture;
+        const np = 1 - curP;
+        this.renderer.setRenderTarget(this.psi[np]);
+        this.renderer.render(this.scene, this.camera);
+        curP = np;
+      }
+      // Advect
+      this.mesh.material = this.advectMat;
+      this.advectMat.uniforms.tOmega.value = this.omega[curO].texture;
+      this.advectMat.uniforms.tPsi.value = this.psi[curP].texture;
+      const nO = 1 - curO;
+      this.renderer.setRenderTarget(this.omega[nO]);
+      this.renderer.render(this.scene, this.camera);
+      curO = nO;
+    }
+
+    return curO;
+  }
+
+  evaluate(ind) {
+    const curO = this._runSim(ind);
+
+    // Read back vorticity for fitness
+    const buf = new Float32Array(this.size * this.size * 4);
+    this.renderer.readRenderTargetPixels(this.omega[curO], 0, 0, this.size, this.size, buf);
+    const fitness = this._fitness(buf, ind);
+
+    // Render display image
+    this.mesh.material = this.displayMat;
+    this.displayMat.uniforms.tOmega.value = this.omega[curO].texture;
+    this.displayMat.uniforms.omegaMax.value = 0.5 * ind.vShear / ind.delta;
+    this.renderer.setRenderTarget(null);
+    this.renderer.render(this.scene, this.camera);
+    const imageData = this.canvas.toDataURL('image/png');
+
+    return { fitness, imageData };
+  }
+
+  evaluateRaw(ind) {
+    const curO = this._runSim(ind);
+    const buf = new Float32Array(this.size * this.size * 4);
+    this.renderer.readRenderTargetPixels(this.omega[curO], 0, 0, this.size, this.size, buf);
+
+    this.mesh.material = this.displayMat;
+    this.displayMat.uniforms.tOmega.value = this.omega[curO].texture;
+    this.displayMat.uniforms.omegaMax.value = 0.5 * ind.vShear / ind.delta;
+    this.renderer.setRenderTarget(null);
+    this.renderer.render(this.scene, this.camera);
+    const imageData = this.canvas.toDataURL('image/png');
+
+    return { buf, imageData };
+  }
+
+  evaluateFast(ind) {
+    const curO = this._runSim(ind);
+    const buf = new Float32Array(this.size * this.size * 4);
+    this.renderer.readRenderTargetPixels(this.omega[curO], 0, 0, this.size, this.size, buf);
+    return this._fitness(buf, ind);
+  }
+
+  _fitness(buf, ind) {
+    const s = this.size;
+    const n = s * s;
+    const bins = 64;
+    const hist = new Float32Array(bins);
+    let alive = 0;
+    const omMax = ind.vShear / ind.delta;
+
+    for (let i = 0; i < n; i++) {
+      const om = buf[i * 4]; // R channel = vorticity
+      const normOm = Math.min(Math.abs(om) / omMax, 1.0);
+      hist[Math.min(Math.floor(normOm * bins), bins - 1)]++;
+      if (normOm > 0.02 && normOm < 0.95) alive++;
+    }
+
+    const entropy = shannonEntropy(hist, n) / Math.log2(bins);
+    const aliveRatio = alive / n;
+    const alivePenalty = 4 * aliveRatio * (1 - aliveRatio);
+
+    // Mixing score: penalize x-uniform patterns (horizontal bars = no swirls)
+    // Measures how much each row deviates from its mean
+    let xVar = 0;
+    for (let iy = 0; iy < s; iy++) {
+      let rowSum = 0;
+      for (let ix = 0; ix < s; ix++) rowSum += Math.abs(buf[(iy * s + ix) * 4]);
+      const rowMean = rowSum / s;
+      let rv = 0;
+      for (let ix = 0; ix < s; ix++) rv += (Math.abs(buf[(iy * s + ix) * 4]) - rowMean) ** 2;
+      xVar += rv / s;
+    }
+    xVar /= (s * omMax * omMax);
+    const mixingScore = Math.min(xVar * 200, 1.0);
+
+    return entropy * (0.3 + 0.7 * alivePenalty) * (0.3 + 0.7 * mixingScore);
+  }
+}
+
+// ── Novelty Search ──────────────────────────────────────────
+
+function extractDescriptor(buf, size) {
+  // Downsample 128×128 → 16×16 via average pooling
+  const ds = 16, block = size / ds;
+  const desc = new Float32Array(ds * ds);
+  for (let dy = 0; dy < ds; dy++) {
+    for (let dx = 0; dx < ds; dx++) {
+      let sum = 0;
+      for (let iy = dy * block; iy < (dy + 1) * block; iy++)
+        for (let ix = dx * block; ix < (dx + 1) * block; ix++)
+          sum += buf[(iy * size + ix) * 4];
+      desc[dy * ds + dx] = sum / (block * block);
+    }
+  }
+  // L2 normalize — makes distance independent of vorticity magnitude
+  let norm = 0;
+  for (let i = 0; i < desc.length; i++) norm += desc[i] * desc[i];
+  norm = Math.sqrt(norm) || 1;
+  for (let i = 0; i < desc.length; i++) desc[i] /= norm;
+  return desc;
+}
+
+function descriptorDist(a, b) {
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) sum += (a[i] - b[i]) ** 2;
+  return Math.sqrt(sum);
+}
+
+class NoveltyArchive {
+  constructor(k = 15, maxSize = 500) {
+    this.k = k; this.maxSize = maxSize; this.archive = [];
+  }
+  noveltyOf(desc) {
+    if (this.archive.length === 0) return 1.0;
+    const dists = this.archive.map(d => descriptorDist(desc, d));
+    dists.sort((a, b) => a - b);
+    const k = Math.min(this.k, dists.length);
+    let sum = 0;
+    for (let i = 0; i < k; i++) sum += dists[i];
+    return sum / k;
+  }
+  add(desc) {
+    if (this.archive.length >= this.maxSize) {
+      this.archive[Math.floor(Math.random() * this.archive.length)] = desc;
+    } else {
+      this.archive.push(desc);
+    }
+  }
+  clear() { this.archive = []; }
+  get size() { return this.archive.length; }
+}
+
+// ── Individual ──────────────────────────────────────────────
+
+class Individual {
+  constructor(nu, vShear, delta, aPert, kPert) {
+    this.nu = nu; this.vShear = vShear; this.delta = delta;
+    this.aPert = aPert; this.kPert = kPert;
+    this.fitness = 0; this.imageData = null;
+  }
+
+  static random() {
+    const r = CONFIG.initRange;
+    return new Individual(randRange(...r.nu), randRange(...r.vShear), randRange(...r.delta), randRange(...r.aPert), randRange(...r.kPert));
+  }
+
+  clone() {
+    const c = new Individual(this.nu, this.vShear, this.delta, this.aPert, this.kPert);
+    c.fitness = this.fitness; c.imageData = this.imageData; return c;
+  }
+
+  mutate() {
+    const s = CONFIG.mutationSigma;
+    const R = PARAM_RANGES;
+    this.nu     = clamp(this.nu     + gaussianRandom() * s.nu,     R.nu[0],     R.nu[1]);
+    this.vShear = clamp(this.vShear + gaussianRandom() * s.vShear, R.vShear[0], R.vShear[1]);
+    this.delta  = clamp(this.delta  + gaussianRandom() * s.delta,  R.delta[0],  R.delta[1]);
+    this.aPert  = clamp(this.aPert  + gaussianRandom() * s.aPert,  R.aPert[0],  R.aPert[1]);
+    this.kPert  = clamp(this.kPert  + gaussianRandom() * s.kPert,  R.kPert[0],  R.kPert[1]);
+  }
+
+  static crossover(a, b) {
+    return new Individual(
+      rng() < 0.5 ? a.nu : b.nu,
+      rng() < 0.5 ? a.vShear : b.vShear,
+      rng() < 0.5 ? a.delta : b.delta,
+      rng() < 0.5 ? a.aPert : b.aPert,
+      rng() < 0.5 ? a.kPert : b.kPert
+    );
+  }
+
+  get paramsString() {
+    return `\u03BD=${this.nu.toFixed(4)} v=${this.vShear.toFixed(1)}\n\u03B4=${this.delta.toFixed(3)} A=${this.aPert.toFixed(2)} k=${this.kPert.toFixed(1)}`;
+  }
+}
+
+// ── Island ──────────────────────────────────────────────────
+
+class Island {
+  constructor(id) {
+    this.id = id;
+    this.population = Array.from({length: CONFIG.popSize}, () => Individual.random());
+  }
+  get best() { return this.population.reduce((a, b) => a.fitness > b.fitness ? a : b); }
+  get worst() { return this.population.reduce((a, b) => a.fitness < b.fitness ? a : b); }
+  tournamentSelect() {
+    let best = null;
+    for (let i = 0; i < CONFIG.tournamentSize; i++) {
+      const c = this.population[Math.floor(rng() * this.population.length)];
+      if (!best || c.fitness > best.fitness) best = c;
+    }
+    return best;
+  }
+  evolve() {
+    this.population.sort((a, b) => b.fitness - a.fitness);
+    const next = [];
+    for (let i = 0; i < CONFIG.eliteCount; i++) next.push(this.population[i].clone());
+    while (next.length < CONFIG.popSize) {
+      const child = Individual.crossover(this.tournamentSelect(), this.tournamentSelect());
+      child.mutate();
+      next.push(child);
+    }
+    this.population = next;
+  }
+}
+
+// ── Migration ───────────────────────────────────────────────
+
+const TOPOLOGIES = {
+  none: () => [],
+  ring: (n) => Array.from({length: n}, (_, i) => [i, (i+1) % n]),
+  star: (n) => Array.from({length: n-1}, (_, i) => [0, i+1]),
+  fc:   (n) => { const e = []; for (let i = 0; i < n; i++) for (let j = i+1; j < n; j++) e.push([i, j]); return e; }
+};
+
+function migrate(islands, topology) {
+  const edges = TOPOLOGIES[topology](islands.length);
+  const migrants = islands.map(isl => isl.best.clone());
+  for (const [a, b] of edges) {
+    const wA = islands[a].worst, wB = islands[b].worst;
+    if (migrants[b].fitness > wA.fitness) {
+      const idx = islands[a].population.indexOf(wA);
+      islands[a].population[idx] = migrants[b].clone();
+    }
+    if (migrants[a].fitness > wB.fitness) {
+      const idx = islands[b].population.indexOf(wB);
+      islands[b].population[idx] = migrants[a].clone();
+    }
+  }
+}
+
+// ── Diversity Metrics ───────────────────────────────────────
+
+function normalizeParams(ind) {
+  return ['nu', 'vShear', 'delta', 'aPert', 'kPert'].map(
+    k => (ind[k] - PARAM_RANGES[k][0]) / (PARAM_RANGES[k][1] - PARAM_RANGES[k][0])
+  );
+}
+
+function euclideanDist(a, b) {
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) sum += (a[i] - b[i]) ** 2;
+  return Math.sqrt(sum);
+}
+
+function avgPairwiseDist(individuals) {
+  if (individuals.length < 2) return 0;
+  const normed = individuals.map(normalizeParams);
+  let total = 0, count = 0;
+  for (let i = 0; i < normed.length; i++) {
+    for (let j = i + 1; j < normed.length; j++) { total += euclideanDist(normed[i], normed[j]); count++; }
+  }
+  return total / count;
+}
+
+function centroid(individuals) {
+  const normed = individuals.map(normalizeParams);
+  const dim = normed[0].length;
+  const c = new Array(dim).fill(0);
+  for (const p of normed) for (let i = 0; i < dim; i++) c[i] += p[i];
+  for (let i = 0; i < dim; i++) c[i] /= normed.length;
+  return c;
+}
+
+function computeDiversity(isls) {
+  const allInds = isls.flatMap(isl => isl.population);
+  const total = avgPairwiseDist(allInds);
+  const withinValues = isls.map(isl => avgPairwiseDist(isl.population));
+  const within = withinValues.reduce((a, b) => a + b, 0) / withinValues.length;
+  const centroids = isls.map(isl => centroid(isl.population));
+  let bTotal = 0, bCount = 0;
+  for (let i = 0; i < centroids.length; i++) {
+    for (let j = i + 1; j < centroids.length; j++) { bTotal += euclideanDist(centroids[i], centroids[j]); bCount++; }
+  }
+  return { total, within, between: bCount > 0 ? bTotal / bCount : 0 };
+}
+
+// ── Batch Experiment ────────────────────────────────────────
+
+const TOPO_COLORS_EXP = { none: '#ff6b6b', ring: '#4ecdc4', star: '#ffe66d', fc: '#a78bfa' };
+let experimentResults = null;
+let experimentRunning = false;
+
+function updateExpProgress(fraction, text) {
+  $('#exp-progress-container').style.display = '';
+  $('#exp-progress-fill').style.width = `${Math.round(fraction * 100)}%`;
+  $('#exp-progress-text').textContent = text;
+}
+
+async function runExperiment(topologies, numSeeds, numGens) {
+  const results = [];
+  const totalRuns = topologies.length * numSeeds;
+  let runIndex = 0;
+  for (const topo of topologies) {
+    for (let seed = 1; seed <= numSeeds; seed++) {
+      rng = mulberry32(seed);
+      const expIslands = Array.from({length: CONFIG.numIslands}, (_, i) => new Island(i));
+      for (let gen = 0; gen < numGens; gen++) {
+        if (!experimentRunning) { rng = Math.random; return null; }
+        for (const isl of expIslands) {
+          for (const ind of isl.population) ind.fitness = simulator.evaluateFast(ind);
+        }
+        const diversity = computeDiversity(expIslands);
+        const allFit = expIslands.flatMap(isl => isl.population.map(ind => ind.fitness));
+        results.push({
+          topology: topo, seed, generation: gen,
+          bestFitness: Math.max(...allFit),
+          meanFitness: allFit.reduce((a, b) => a + b, 0) / allFit.length,
+          diversityTotal: diversity.total, diversityBetween: diversity.between, diversityWithin: diversity.within
+        });
+        for (const isl of expIslands) isl.evolve();
+        if (topo !== 'none' && gen > 0 && gen % CONFIG.migrationInterval === 0) migrate(expIslands, topo);
+        if (gen % 5 === 0) {
+          updateExpProgress((runIndex + gen / numGens) / totalRuns, `${topo} seed ${seed}/${numSeeds} gen ${gen}/${numGens}`);
+          await new Promise(r => setTimeout(r, 0));
+        }
+      }
+      runIndex++;
+      updateExpProgress(runIndex / totalRuns, `${topo} seed ${seed} done`);
+    }
+  }
+  rng = Math.random;
+  return results;
+}
+
+function generateCSV(results) {
+  const header = 'topology,seed,generation,best_fitness,mean_fitness,diversity_total,diversity_between,diversity_within';
+  const rows = results.map(r =>
+    `${r.topology},${r.seed},${r.generation},${r.bestFitness.toFixed(6)},${r.meanFitness.toFixed(6)},${r.diversityTotal.toFixed(6)},${r.diversityBetween.toFixed(6)},${r.diversityWithin.toFixed(6)}`
+  );
+  return header + '\n' + rows.join('\n');
+}
+
+function downloadCSV(csv, filename) {
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function renderExpResults(results, numGens) {
+  const container = $('#exp-results'); container.style.display = '';
+  const topos = [...new Set(results.map(r => r.topology))];
+  const finalGen = numGens - 1;
+  let tableHTML = '<table class="results-table"><tr><th>Topology</th><th>Total Diversity</th><th>Between-Island</th><th>Within-Island</th><th>Best Fitness</th></tr>';
+  for (const topo of topos) {
+    const finalRows = results.filter(r => r.topology === topo && r.generation === finalGen);
+    const stats = (key) => {
+      const vals = finalRows.map(r => r[key]);
+      const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+      const std = Math.sqrt(vals.reduce((a, v) => a + (v - mean) ** 2, 0) / vals.length);
+      return `${mean.toFixed(3)} \u00b1 ${std.toFixed(3)}`;
+    };
+    tableHTML += `<tr><td style="color:${TOPO_COLORS_EXP[topo]}">${topo}</td><td>${stats('diversityTotal')}</td><td>${stats('diversityBetween')}</td><td>${stats('diversityWithin')}</td><td>${stats('bestFitness')}</td></tr>`;
+  }
+  tableHTML += '</table>';
+  $('#exp-summary').innerHTML = tableHTML;
+  drawDiversityChart(results, numGens, topos);
+}
+
+function drawDiversityChart(results, numGens, topos) {
+  const canvas = $('#diversity-chart');
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  canvas.width = W * 2; canvas.height = H * 2;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(2, 2);
+  ctx.fillStyle = '#0a0a1e'; ctx.fillRect(0, 0, W, H);
+  const pad = { l: 45, r: 80, t: 12, b: 24 };
+  const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
+  const series = {};
+  for (const topo of topos) {
+    series[topo] = [];
+    for (let g = 0; g < numGens; g++) {
+      const rows = results.filter(r => r.topology === topo && r.generation === g);
+      series[topo].push(rows.reduce((a, r) => a + r.diversityTotal, 0) / rows.length);
+    }
+  }
+  let yMax = 0;
+  for (const topo of topos) for (const v of series[topo]) yMax = Math.max(yMax, v);
+  yMax = Math.ceil(yMax * 10) / 10 || 0.5;
+  ctx.strokeStyle = '#1a1a3a'; ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, H - pad.b); ctx.lineTo(W - pad.r, H - pad.b); ctx.stroke();
+  ctx.fillStyle = '#444'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+  for (let v = 0; v <= yMax; v += yMax / 4) {
+    const y = pad.t + plotH * (1 - v / yMax);
+    ctx.fillText(v.toFixed(2), pad.l - 4, y + 3);
+    ctx.strokeStyle = '#111128'; ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+  }
+  ctx.fillStyle = '#444'; ctx.textAlign = 'center';
+  ctx.fillText('generation', pad.l + plotW / 2, H - 2);
+  const xScale = numGens > 1 ? numGens - 1 : 1;
+  for (const topo of topos) {
+    ctx.strokeStyle = TOPO_COLORS_EXP[topo]; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let g = 0; g < numGens; g++) {
+      const x = pad.l + (g / xScale) * plotW;
+      const y = pad.t + plotH * (1 - series[topo][g] / yMax);
+      g === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  let ly = pad.t + 4;
+  ctx.textAlign = 'left'; ctx.font = '10px monospace';
+  for (const topo of topos) {
+    ctx.fillStyle = TOPO_COLORS_EXP[topo]; ctx.fillRect(W - pad.r + 10, ly, 10, 10);
+    ctx.fillStyle = '#888'; ctx.fillText(topo, W - pad.r + 24, ly + 9);
+    ly += 16;
+  }
+}
+
+// ── State ───────────────────────────────────────────────────
+
+let simulator, islands, generation, running, topology, hallOfFame, fitnessHistory;
+let webglOk = true;
+let fitnessMode = 'novelty';  // 'entropy' or 'novelty'
+let noveltyArchive = new NoveltyArchive();
+
+function initState() {
+  try { simulator = new Simulator(CONFIG.simSize); } catch (e) { console.error('WebGL init failed:', e); webglOk = false; }
+  islands = Array.from({length: CONFIG.numIslands}, (_, i) => new Island(i));
+  generation = 0; running = false; topology = 'none';
+  hallOfFame = []; fitnessHistory = Array.from({length: CONFIG.numIslands}, () => []);
+  noveltyArchive.clear();
+}
+
+// ── UI ──────────────────────────────────────────────────────
+
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+function buildIslandCards() {
+  const grid = $('#islands-grid'); grid.innerHTML = '';
+  for (let i = 0; i < CONFIG.numIslands; i++) {
+    const card = document.createElement('div');
+    card.className = 'island-card'; card.id = `island-${i}`;
+    card.innerHTML = `
+      <div class="island-name"><span class="island-dot c${i}"></span>Island ${i+1}</div>
+      <img class="pattern-img" id="pattern-${i}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="pattern">
+      <div class="island-params" id="params-${i}">-</div>
+      <div class="island-fitness" id="fitness-${i}">-</div>`;
+    grid.appendChild(card);
+  }
+}
+
+function updateIslandDisplay(islandIdx) {
+  const best = islands[islandIdx].best;
+  if (best.imageData) $(`#pattern-${islandIdx}`).src = best.imageData;
+  $(`#params-${islandIdx}`).textContent = best.paramsString;
+  $(`#fitness-${islandIdx}`).textContent = `fitness: ${best.fitness.toFixed(3)}`;
+  const globalBestIdx = islands.reduce((bi, isl, i, arr) => isl.best.fitness > arr[bi].best.fitness ? i : bi, 0);
+  $$('.island-card').forEach((c, i) => c.classList.toggle('best', i === globalBestIdx));
+}
+
+function updateHallOfFame() {
+  for (const isl of islands) {
+    const best = isl.best;
+    if (best.fitness > 0 && best.imageData) {
+      const exists = hallOfFame.some(h => Math.abs(h.nu - best.nu) < 0.0001 && Math.abs(h.delta - best.delta) < 0.001);
+      if (!exists) {
+        hallOfFame.push({ fitness: best.fitness, imageData: best.imageData,
+          nu: best.nu, vShear: best.vShear, delta: best.delta, aPert: best.aPert, kPert: best.kPert, gen: generation });
+        hallOfFame.sort((a, b) => b.fitness - a.fitness);
+        if (hallOfFame.length > CONFIG.hofSize) hallOfFame.pop();
+      } else {
+        const entry = hallOfFame.find(h => Math.abs(h.nu - best.nu) < 0.0001 && Math.abs(h.delta - best.delta) < 0.001);
+        if (entry && best.fitness > entry.fitness) {
+          Object.assign(entry, { fitness: best.fitness, imageData: best.imageData,
+            vShear: best.vShear, aPert: best.aPert, kPert: best.kPert, gen: generation });
+          hallOfFame.sort((a, b) => b.fitness - a.fitness);
+        }
+      }
+    }
+  }
+  renderHallOfFame();
+}
+
+function renderHallOfFame() {
+  const strip = $('#hof-strip');
+  if (hallOfFame.length === 0) return;
+  strip.innerHTML = '';
+  for (const h of hallOfFame) {
+    const el = document.createElement('div'); el.className = 'hof-entry';
+    el.innerHTML = `<img src="${h.imageData}" alt="pattern"><div class="hof-info">${h.fitness.toFixed(3)}<br>gen ${h.gen}<br>\u03BD=${h.nu.toFixed(4)} \u03B4=${h.delta.toFixed(3)}</div>`;
+    strip.appendChild(el);
+  }
+}
+
+// ── Fitness Chart ───────────────────────────────────────────
+
+function drawChart() {
+  const canvas = $('#fitness-chart');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  canvas.width = W * 2; canvas.height = H * 2;
+  ctx.scale(2, 2);
+  ctx.fillStyle = '#0a0a1e'; ctx.fillRect(0, 0, W, H);
+  if (fitnessHistory[0].length < 2) return;
+  const maxGen = fitnessHistory[0].length;
+  const visibleGens = Math.min(maxGen, 100);
+  const startGen = maxGen - visibleGens;
+  const pad = { l: 35, r: 10, t: 10, b: 20 };
+  const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
+  ctx.strokeStyle = '#1a1a3a'; ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, H - pad.b); ctx.lineTo(W - pad.r, H - pad.b); ctx.stroke();
+  ctx.fillStyle = '#444'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+  for (let v = 0; v <= 1; v += 0.25) {
+    const y = pad.t + plotH * (1 - v);
+    ctx.fillText(v.toFixed(2), pad.l - 4, y + 3);
+    ctx.strokeStyle = '#111128'; ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+  }
+  for (let i = 0; i < CONFIG.numIslands; i++) {
+    const data = fitnessHistory[i];
+    ctx.strokeStyle = ISLAND_COLORS[i]; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    for (let g = startGen; g < maxGen; g++) {
+      const x = pad.l + ((g - startGen) / (visibleGens - 1)) * plotW;
+      const y = pad.t + plotH * (1 - clamp(data[g], 0, 1));
+      g === startGen ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#444'; ctx.textAlign = 'center';
+  ctx.fillText(`gen ${maxGen - 1}`, W - pad.r - 20, H - 4);
+}
+
+// ── Evolution Loop ──────────────────────────────────────────
+
+async function runEvolution() {
+  while (running) {
+    for (let i = 0; i < CONFIG.numIslands; i++) {
+      for (let j = 0; j < islands[i].population.length; j++) {
+        if (!running) return;
+        const ind = islands[i].population[j];
+        const archiveInfo = fitnessMode === 'novelty' ? ` [archive: ${noveltyArchive.size}]` : '';
+        $('#status').textContent = `Evaluating island ${i+1}, individual ${j+1}/${CONFIG.popSize}${archiveInfo}`;
+
+        if (fitnessMode === 'novelty') {
+          const result = simulator.evaluateRaw(ind);
+          ind.imageData = result.imageData;
+          const desc = extractDescriptor(result.buf, CONFIG.simSize);
+          const novelty = noveltyArchive.noveltyOf(desc);
+          const quality = simulator._fitness(result.buf, ind);
+          ind.fitness = novelty * Math.min(quality + 0.1, 1.0);
+          noveltyArchive.add(desc);
+        } else {
+          const result = simulator.evaluate(ind);
+          ind.fitness = result.fitness; ind.imageData = result.imageData;
+        }
+        await waitFrame();
+      }
+      updateIslandDisplay(i);
+    }
+    for (let i = 0; i < CONFIG.numIslands; i++) fitnessHistory[i].push(islands[i].best.fitness);
+    drawChart(); updateHallOfFame();
+    $('#gen-num').textContent = generation;
+    const globalBest = Math.max(...islands.map(isl => isl.best.fitness));
+    $('#status').textContent = `Gen ${generation} complete. Best: ${globalBest.toFixed(3)}`;
+    for (const isl of islands) isl.evolve();
+    if (topology !== 'none' && generation > 0 && generation % CONFIG.migrationInterval === 0) {
+      migrate(islands, topology);
+      $('#status').textContent += ` | Migration (${topology})`;
+    }
+    generation++;
+    await waitFrame();
+  }
+}
+
+// ── Event Handlers ──────────────────────────────────────────
+
+function setupEvents() {
+  $('#btn-start').addEventListener('click', () => {
+    if (!webglOk) { $('#status').textContent = 'WebGL not available.'; return; }
+    if (!running) {
+      running = true;
+      $('#btn-start').disabled = true; $('#btn-pause').disabled = false; $('#btn-reset').disabled = false;
+      runEvolution();
+    }
+  });
+  $('#btn-pause').addEventListener('click', () => {
+    running = false;
+    $('#btn-start').disabled = false; $('#btn-pause').disabled = true;
+    $('#status').textContent = 'Paused';
+  });
+  $('#btn-reset').addEventListener('click', () => {
+    running = false; experimentRunning = false;
+    setTimeout(() => {
+      initState(); buildIslandCards(); drawChart();
+      $('#gen-num').textContent = '0'; $('#status').textContent = 'Reset. Ready.';
+      $('#btn-start').disabled = false; $('#btn-pause').disabled = true; $('#btn-reset').disabled = true;
+      $('#hof-strip').innerHTML = '<span style="font-size:11px;color:#444">Patterns will appear here as evolution runs...</span>';
+    }, 100);
+  });
+  $$('[data-topo]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      topology = btn.dataset.topo;
+      $$('[data-topo]').forEach(b => b.classList.toggle('active', b === btn));
+    });
+  });
+  $$('[data-fitness]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      fitnessMode = btn.dataset.fitness;
+      $$('[data-fitness]').forEach(b => b.classList.toggle('active', b === btn));
+    });
+  });
+  $('#experiment-toggle').addEventListener('click', () => {
+    const body = $('#experiment-body'), arrow = $('#experiment-toggle .arrow');
+    const open = body.classList.toggle('open'); arrow.classList.toggle('open', open);
+  });
+  $('#btn-experiment').addEventListener('click', async () => {
+    if (experimentRunning) { experimentRunning = false; return; }
+    if (running) { updateExpProgress(0, 'Pause interactive evolution first'); return; }
+    const numGens = parseInt($('#exp-gens').value) || 30;
+    const numSeeds = parseInt($('#exp-seeds').value) || 10;
+    const topoChecks = [...$$('#topo-checks input:checked')].map(cb => cb.value);
+    if (topoChecks.length === 0) { updateExpProgress(0, 'Select at least one topology'); return; }
+    experimentRunning = true;
+    $('#btn-experiment').textContent = 'Cancel'; $('#btn-experiment').className = 'action-btn secondary';
+    $('#btn-start').disabled = true; $('#btn-download-csv').disabled = true;
+    $('#exp-results').style.display = 'none';
+    const results = await runExperiment(topoChecks, numSeeds, numGens);
+    experimentRunning = false;
+    $('#btn-experiment').textContent = 'Run Experiment'; $('#btn-experiment').className = 'action-btn primary';
+    $('#btn-start').disabled = false;
+    if (results) {
+      experimentResults = results; $('#btn-download-csv').disabled = false;
+      updateExpProgress(1, `Done \u2014 ${results.length} data points`);
+      renderExpResults(results, numGens);
+    } else { updateExpProgress(0, 'Cancelled'); }
+  });
+  $('#btn-download-csv').addEventListener('click', () => {
+    if (experimentResults) downloadCSV(generateCSV(experimentResults), `kh-experiment-${Date.now()}.csv`);
+  });
+}
+
+// ── Init ────────────────────────────────────────────────────
+
+initState();
+buildIslandCards();
+setupEvents();
+
+const chartCanvas = $('#fitness-chart');
+chartCanvas.width = chartCanvas.clientWidth * 2;
+chartCanvas.height = chartCanvas.clientHeight * 2;
+drawChart();
+
+$('#status').textContent = webglOk ? 'Ready. Click Evolve to begin.' : 'WebGL not available.';
+</script>
+</body>
+</html>
